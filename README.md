@@ -35,7 +35,7 @@ So you can just create a PNG from `./src/sequenceDiagram.plantml` in the project
 java -jar plantuml.jar -tpng -o .. ./src/sequenceDiagram.plantml
 ```
 
-And for any other format just swicth `-tpng` with the desired output format.
+And for any other format just switch `-tpng` with the desired output format.
 
 The case of pdf generation is somewhat special since the PlantUML export is, let's say it like this, not good, so it is preferable to export first to SVG with
 
@@ -45,7 +45,9 @@ java -jar plantuml.jar -tsvg -o .. ./src/sequenceDiagram.plantml
 
 and then use another software, such as [Inkscape](https://inkscape.org/), to create the PDF from the SVG.
 
-You can do it manually or create a script. In linux, you can create a small one with `svgtopdf` anywhere in your PATH with the following contents
+You can do it manually or create a script.
+
+In Linux/Mac, you can create a small one with filename `svgtopdf` with the following contents
 
 ```bash
 #!/bin/bash
@@ -54,7 +56,19 @@ for file in "$@"; do
 done
 ```
 
-and just convert the SVG file to PDF with
+Give your script execution permissions
+
+```console
+chmod +x svgtopdf
+```
+
+and move it somewhere in your path, for example to `/usr/local/bin`
+
+```console
+mv svgtopdf /usr/local/bin
+```
+
+No you can easily convert the SVG image to PDF with
 
 ```console
 svgtopdf image.svg
