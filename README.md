@@ -10,7 +10,7 @@ Download PlantUML compiled Jar from [https://plantuml.com/download](https://plan
 
 ## Generate images from source
 
-In the following we will assume that the sequence diagram source file is located at `./src/sequenceDiagram.plantml` and that we want to output the generated images direclty to the project base dir, which can be expressed as `..` relatively to where the source file is. We will also assume that `plantuml.jar` is in the project base dir, but you will need to update the commands with the actual path where you download it.
+In the following we will assume that the sequence diagram source file is located at `./src/sequenceDiagram.plantml` and that we want to output the generated images direclty to the project base dir, which can be expressed as `..` relatively to where the source file is. We will also assume that `plantuml.jar` is in the project base dir, but you will need to update the commands with the actual path where you downloaded it.
 
 PlantUML supports exporting different images:
 
