@@ -1,0 +1,142 @@
+@startuml nonRepudiableExchangeLog
+skinparam shadowing false
+skinparam DefaultFontName Noto Sans
+skinparam DefaultMonospacedFontName Noto Sans Mono
+skinparam ArrowFontName Noto Sans Mono
+skinparam maxMessageSize 200
+
+title Non-repudiable data-exchange log
+
+box "Consumer" #White
+    participant ": SDA SDK" as C
+end box
+box "Provider" #White
+    participant "SDA API\n: Data Transfer Manager" as P
+end box
+box "i3-Market Backplane\n" #LightGreen
+    participant "Backplane API\n: Auditable Accounting" as AA
+    participant "Backplane API\n: Conflict Resolution" as CR
+end box
+
+C->P++: GET data {id: #X}
+    P->P++: create one time secret S
+    P--
+    P->P++: encrypt data with S\nC=Enc(S, data)
+    P--
+    P->P++: create proof of origin\n\
+PoO=signature<sub>P</sub>({\n\
+  id: #X,\n\
+  src: ProvId,\n\
+  dst: ConsId,\n\
+  timestamp: TS<sub>O</sub>,\n\
+  dataDescription,\n\
+  dataCommitment: hash(data),\n\
+  SCommitment: hash(S),\n\
+  encryptedData: C\n\
+})
+    note left
+        ""dataDescription"" describes the
+        piece of plaintext data 
+        (format, size, ...)
+
+        ""dataCommitment"" is a commitment
+        that can be later used to 
+        verify the decrypted data
+
+        ""SCommitment"" is a commitment 
+        that can be later used to 
+        verify the received ""S""
+    end note
+    P--
+return {id: #X, src: ProvId, dst: ConsId, timestamp: TS<sub>O</sub>,\ndataDescription, dataCommitment: hash(data),\nScommitment: hash(S), encryptedData: C, proof: PoO}
+
+C->C++: validate PoO
+C--
+
+alt invalid PoO
+    C->>P !!: terminate
+else valid PoO
+    C->C: store PoO
+    C->C++: create proof of reception\n\
+PoR=signature<sub>C</sub>({\n\
+  id: #X,\n\
+  src: ProvId,\n\
+  dst: ConsId,\n\
+  timestamp: TS<sub>R</sub>,\n\
+  dataDescription,\n\
+  dataCommitment: hash(data),\n\
+  SCommitment: hash(S),\n\
+  encryptedData: C\n\
+})
+    C--
+    C->P++: {id: #X, timestamp: TS<sub>R</sub>, proof: PoR}
+    P->P++: validate PoR
+    P--
+    alt invalid PoR
+        P->>C !!: terminate
+    else valid PoR
+        P->P: store PoR
+        P->P++: create proof of S\n\
+PoS=signature<sub>P</sub>({\n\
+  id: #X,\n\
+  src: ProvId,\n\
+  dst: ConsId,\n\
+  timestamp: TS<sub>P</sub>,\n\
+  secret: S\n\
+})
+        P--
+        P->AA++: account ([\n{\n  availability: 'privateStorage',\n  permissions: {view: [ProvId, ConsId]},\n  content: {id: #X, dataDescription, PoO, PoR, PoS}\n},\n{\n  availability: 'blockchain',\n  content: {id: #X, S}\n}\n])
+        return verificationCode
+        note left
+            The ""verificationCode"" includes blockchain
+            specific information proving that the 
+            requested data has been accounted (e.g. 
+            ""tx_id"", ""block_id"")
+        end note
+        P-->P++: check that blockchain registration\nof S is within P<sub>R</sub> + timeout
+        note left
+            There is a predefined/agreed max timeout
+            to wait for ""S"" to be on the blockchain
+        end note
+        P--
+        return S, PoS, verificationCode
+        opt S not received
+            loop while S not received && currentTime < P<sub>R</sub> + timeout
+                C->AA++: getS {id: #X}
+                note left of AA
+                    Although the Consumer can use i3-market to
+                    connect to the Blockchain and download ""S"", 
+                    it could also use any other connection to 
+                    download it since it is in the public Blockchain
+                end note
+                return S, PoS, verificationCode
+            end
+        end
+
+        C->C++: validate PoS\ncheck hash(S) == SCommitment\nvalidate verificationCode
+        C--
+
+        alt validation failed
+            C->>P !!: terminate
+            opt conflict resolution
+                ref over C, P, AA, CR
+                    conflict resolution
+                end ref
+            end
+        else validation succeed
+            C->C++: decrypt C with S: Dec(S, C)=decryptedData
+            C--
+            C->C++: validate hash(decryptedData) == dataCommitment &&\n      decryptedData meets dataDescription
+            C--
+            opt validation failed
+                C->>P !!: terminate
+                opt conflict resolution
+                    ref over C, P, AA, CR
+                        conflict resolution
+                    end ref
+                end
+            end
+        end
+    end
+end
+@enduml
