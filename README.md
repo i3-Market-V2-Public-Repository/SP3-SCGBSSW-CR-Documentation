@@ -37,7 +37,7 @@ java -jar plantuml.jar -tpng -o .. ./src/sequenceDiagram.plantml
 
 And for any other format just switch `-tpng` with the desired output format.
 
-The case of pdf generation is somewhat special since the PlantUML export is, let's say it like this, not good, so it is preferable to export first to SVG with
+The case of PDF generation is somewhat special since the PlantUML PDF exporter is, let's say it like this, not good, so it is preferable to export first to SVG with
 
 ```console
 java -jar plantuml.jar -tsvg -o .. ./src/sequenceDiagram.plantml
@@ -68,7 +68,7 @@ and move it somewhere in your path, for example to `/usr/local/bin`
 mv svgtopdf /usr/local/bin
 ```
 
-No you can easily convert the SVG image to PDF with
+Now, you can easily convert the SVG image to PDF with
 
 ```console
 svgtopdf image.svg
