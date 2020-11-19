@@ -45,9 +45,7 @@ java -jar plantuml.jar -tsvg -o .. ./src/sequenceDiagram.plantml
 
 and then use another software, such as [Inkscape](https://inkscape.org/), to create the PDF from the SVG.
 
-You can do it manually or create a script.
-
-In Linux/Mac, you can create a small one with filename `svgtopdf` with the following contents
+You can do it manually or create a command-line script. In Linux/Mac, you could create one called `svgtopdf` with the following contents
 
 ```bash
 #!/bin/bash
