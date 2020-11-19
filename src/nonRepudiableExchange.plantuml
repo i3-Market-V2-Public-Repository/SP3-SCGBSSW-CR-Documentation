@@ -3,7 +3,7 @@ skinparam shadowing false
 skinparam DefaultFontName Noto Sans
 skinparam DefaultMonospacedFontName Noto Sans Mono
 skinparam ArrowFontName Noto Sans Mono
-skinparam maxMessageSize 200
+skinparam maxMessageSize 350
 
 title Non-repudiable data-exchange log
 
@@ -48,7 +48,17 @@ PoO=signature<sub>P</sub>({\n\
         verify the received ""S""
     end note
     P--
-return {id: #X, src: ProvId, dst: ConsId, timestamp: TS<sub>O</sub>,\ndataDescription, dataCommitment: hash(data),\nScommitment: hash(S), encryptedData: C, proof: PoO}
+return {\n\
+  id: #X,\n\
+  src: ProvId,\n\
+  dst: ConsId,\n\
+  timestamp: TS<sub>O</sub>,\n\
+  dataDescription,\n\
+  dataCommitment: hash(data),\n\
+  Scommitment: hash(S),\n\
+  encryptedData: C,\n\
+  proof: PoO\n\
+}
 
 C->C++: validate PoO
 C--
@@ -124,9 +134,9 @@ PoS=signature<sub>P</sub>({\n\
                 end ref
             end
         else validation succeed
-            C->C++: decrypt C with S: Dec(S, C)=decryptedData
+            C->C++: decrypt C with S:\n  Dec(S, C)=decryptedData
             C--
-            C->C++: validate hash(decryptedData) == dataCommitment &&\n      decryptedData meets dataDescription
+            C->C++: validate that\n  hash(decryptedData) == dataCommitment &&\n  decryptedData meets dataDescription
             C--
             opt validation failed
                 C->>P !!: terminate
