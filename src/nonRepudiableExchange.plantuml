@@ -26,7 +26,7 @@ C->P++: GET data {id?: <block_id>}
         symmetric JWK secret. The created JWK 
         MUST be uniquely identified by its ""kid""
     end note
-    P->P++: cipherblock=JWE<sub>key</sub>(block)
+    P->P++: cipherblock=Enc<sub>key</sub>(block)
     P--
     note left
       encrypt data block with ""key"
@@ -41,7 +41,8 @@ C->P++: GET data {id?: <block_id>}
     dest: <consumer_id>,\n\
     block_id: <block_id>,\n\
     block_desc: <block_description>,\n\
-    cipherblock: <cipherblock>,\n\
+    hash_alg: <hash_algorithm>,\n\
+    cipherblock_dgst: <hash_of_cipherblock>,\n\
     block_commitment: <hash_of_block>,\n\
     key_commitment: <hash_of_key>\n\
   }\n\
@@ -61,7 +62,7 @@ C->P++: GET data {id?: <block_id>}
         received ""key""
     end note
     P--
-return PoO
+return { cipherblock, PoO }
 
 C->C++: validate PoO
 C--
@@ -74,7 +75,8 @@ else valid PoO
   iss: <consumer_id>,\n\
   sub: <provider_id>,\n\
   iat: <timestamp_now>,\n\
-  poo_dgst: <digest__of_received_PoO>\n\
+  hash_alg: <hash_algorithm>,\n\
+  poo_dgst: <hash_of_received_PoO>\n\
 })
     C--
     note left
@@ -150,7 +152,7 @@ else valid PoO
                 end ref
             end
         else validation succeed
-            C->C++: decrypt cipherblock with key:\n  decryptedBlock=Dec<sub>key</sub>(PoO.exchange.cipherblock)
+            C->C++: decrypt cipherblock with key:\n  decryptedBlock=Dec<sub>key</sub>(cipherblock)
             C--
             C->C++: validate that:\n  hash(decryptedBlock) == PoO.exchange.block_commitment\n  decryptedBlock meets PoO.exchange.block_desc
             C--
