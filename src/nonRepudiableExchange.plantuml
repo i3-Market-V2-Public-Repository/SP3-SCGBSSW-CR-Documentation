@@ -3,7 +3,7 @@ skinparam shadowing false
 skinparam DefaultFontName Noto Sans
 skinparam DefaultMonospacedFontName Noto Sans Mono
 skinparam ArrowFontName Noto Sans Mono
-skinparam maxMessageSize 350
+skinparam maxMessageSize 450
 
 title Non-repudiable data-exchange log
 
@@ -18,47 +18,50 @@ box "i3-Market Backplane\n" #LightGreen
     participant "Backplane API\n: Conflict Resolution" as CR
 end box
 
-C->P++: GET data {id: #X}
-    P->P++: create one time secret S
+C->P++: GET data {id?: <block_id>}
+    P->P++: key=new JWK(alg=<algorithm>)
     P--
-    P->P++: encrypt data with S\nC=Enc(S, data)
+    note left
+        Create random (high entropy)\none time
+        symmetric JWK secret. The created JWK 
+        MUST be uniquely identified by its ""kid""
+    end note
+    P->P++: cipherblock=JWE<sub>key</sub>(block)
     P--
-    P->P++: create proof of origin\n\
-PoO=signature<sub>P</sub>({\n\
-  id: #X,\n\
-  src: ProvId,\n\
-  dst: ConsId,\n\
-  timestamp: TS<sub>O</sub>,\n\
-  dataDescription,\n\
-  dataCommitment: hash(data),\n\
-  SCommitment: hash(S),\n\
-  encryptedData: C\n\
+    note left
+      encrypt data block with ""key"
+    end note
+    P->P++: PoO=JWS<sub>provider</sub>({\n\
+  iss: <provider_id>,\n\
+  sub: <consumer_id>,\n\
+  iat: <timestamp_now>,\n\
+  exchange: {\n\
+    id: <exchange_id>,\n\
+    orig: <provider_id>,\n\
+    dest: <consumer_id>,\n\
+    block_id: <block_id>,\n\
+    block_desc: <block_description>,\n\
+    cipherblock: <cipherblock>,\n\
+    block_commitment: <hash_of_block>,\n\
+    key_commitment: <hash_of_key>\n\
+  }\n\
 })
     note left
-        ""dataDescription"" describes the
-        piece of plaintext data 
-        (format, size, ...)
+        Create proof of origin (PoO).
 
-        ""dataCommitment"" is a commitment
-        that can be later used to 
-        verify the decrypted data
+        ""block_desc"" describes the piece of
+        plaintext data (format, size, ...)
 
-        ""SCommitment"" is a commitment 
-        that can be later used to 
-        verify the received ""S""
+        ""block_commitment"" is a commitment
+        that can be later used to verify the
+        decrypted cipherblock
+
+        ""key_commitment"" is a commitment 
+        that can be later used to verify the 
+        received ""key""
     end note
     P--
-return {\n\
-  id: #X,\n\
-  src: ProvId,\n\
-  dst: ConsId,\n\
-  timestamp: TS<sub>O</sub>,\n\
-  dataDescription,\n\
-  dataCommitment: hash(data),\n\
-  Scommitment: hash(S),\n\
-  encryptedData: C,\n\
-  proof: PoO\n\
-}
+return PoO
 
 C->C++: validate PoO
 C--
@@ -67,63 +70,76 @@ alt invalid PoO
     C->>P !!: terminate
 else valid PoO
     C->C: store PoO
-    C->C++: create proof of reception\n\
-PoR=signature<sub>C</sub>({\n\
-  id: #X,\n\
-  src: ProvId,\n\
-  dst: ConsId,\n\
-  timestamp: TS<sub>R</sub>,\n\
-  dataDescription,\n\
-  dataCommitment: hash(data),\n\
-  SCommitment: hash(S),\n\
-  encryptedData: C\n\
+    C->C++: PoR=JWS<sub>consumer</sub>({\n\
+  iss: <consumer_id>,\n\
+  sub: <provider_id>,\n\
+  iat: <timestamp_now>,\n\
+  poo_dgst: <digest__of_received_PoO>\n\
 })
     C--
-    C->P++: {id: #X, timestamp: TS<sub>R</sub>, proof: PoR}
+    note left
+      Create proof of reception (PoR)
+    end note
+    C->P++: PoR
     P->P++: validate PoR
     P--
     alt invalid PoR
         P->>C !!: terminate
     else valid PoR
         P->P: store PoR
-        P->P++: create proof of S\n\
-PoS=signature<sub>P</sub>({\n\
-  id: #X,\n\
-  src: ProvId,\n\
-  dst: ConsId,\n\
-  timestamp: TS<sub>P</sub>,\n\
-  secret: S\n\
-})
-        P--
-        P->AA++: account ([\n{\n  availability: 'privateStorage',\n  permissions: {view: [ProvId, ConsId]},\n  content: {id: #X, dataDescription, PoO, PoR, PoS}\n},\n{\n  availability: 'blockchain',\n  content: {id: #X, S}\n}\n])
-        return verificationCode
-        note left
-            The ""verificationCode"" includes blockchain
-            specific information proving that the 
-            requested data has been accounted (e.g. 
-            ""tx_id"", ""block_id"")
+        P->AA++: POST account \n\
+[\n\
+  {\n\
+    availability: 'privateStorage',\n\
+    permissions: { view: [<providerId>, <consumerId>] },\n\
+    type: 'dict',\n\
+    id: <PoO.exchange.exchange_id>,\n\
+    content: { <block_id>: { PoO: <PoO>, PoR: <PoR> } }\n\
+  },\n\
+  {\n\
+    availability: 'blockchain',\n\
+    type: 'jwk',\n\
+    content: { <kid>: <key> }\n\
+  }\n\
+]
+        note right
+          Proofs for this block are added to the
+          stored dict of the current exchange.
+          Proofs can only be viewed by the consumer
+          and the provider.
+
+          The one-time jwk that was used to encrypt 
+          the block is published in the blockchain 
         end note
-        P-->P++: check that blockchain registration\nof S is within P<sub>R</sub> + timeout
+        return PoP
         note left
-            There is a predefined/agreed max timeout
-            to wait for ""S"" to be on the blockchain
+          The proof of publication (""PoP"") of ""key"" is a
+          verification code that includes blockchain
+          specific information proving that the 
+          requested data has been accounted (e.g. 
+          ""tx_id"", ""block_id"")
         end note
-        P--
-        return S, PoS, verificationCode
-        opt S not received
-            loop while S not received && currentTime < P<sub>R</sub> + timeout
-                C->AA++: getS {id: #X}
+        return { key: <key>, pop: <PoP> }
+        opt no response || lost response
+            P ->x C: { key: <key>, pop: <PoP> }
+            note left
+              There is a predefined/agreed 
+              max timeout to wait for the 
+              ""key"" to be on the blockchain
+            end note
+            loop while key not received && currentTime < PoR.iat + timeout
+                C->AA++: getKey {kid: <kid>}
                 note left of AA
                     Although the Consumer can use i3-market to
-                    connect to the Blockchain and download ""S"", 
-                    it could also use any other connection to 
+                    connect to the Blockchain and download the 
+                    ""key"", it could also use any other connection to 
                     download it since it is in the public Blockchain
                 end note
-                return S, PoS, verificationCode
+                return { key: <key>, pop: <PoP> }
             end
         end
-
-        C->C++: validate PoS\ncheck hash(S) == SCommitment\nvalidate verificationCode
+        
+        C->C++: verify that:\n  key has been received\n  PoP is valid\n  hash(key) == PoO.key_commitment
         C--
 
         alt validation failed
@@ -134,9 +150,9 @@ PoS=signature<sub>P</sub>({\n\
                 end ref
             end
         else validation succeed
-            C->C++: decrypt C with S:\n  Dec(S, C)=decryptedData
+            C->C++: decrypt cipherblock with key:\n  decryptedBlock=Dec<sub>key</sub>(PoO.exchange.cipherblock)
             C--
-            C->C++: validate that\n  hash(decryptedData) == dataCommitment &&\n  decryptedData meets dataDescription
+            C->C++: validate that:\n  hash(decryptedBlock) == PoO.exchange.block_commitment\n  decryptedBlock meets PoO.exchange.block_desc
             C--
             opt validation failed
                 C->>P !!: terminate
