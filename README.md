@@ -1,3 +1,6 @@
+[![License: EUPL-1.2](https://img.shields.io/badge/license-EUPL--1.2-green.svg)](LICENSE)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
 # Conflict Resolution / Non-repudiation protocol
 
 The conflict resolution system main goal is to prevent and or solve conflicts when invoicing for a given exchange of data.
