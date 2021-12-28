@@ -35,7 +35,7 @@ The non repudiation protocol starts with a Provider Alice, hereby A, sending a s
 
 An overview of the protocol is depicted in the next figure, and more detailed sequence diagrams of every step are provided in section [2.1. Detailed diagrams](#21-detailed-diagrams).
 
-![NRP high level overview](./src/nrpOverview.svg)
+![NRP high level overview](./diagrams/nrpOverview.svg)
 
 After validating the PoO, B will demonstrate his will to get the data by sending a signed Proof of Reception (PoR). Just recall that B is at this point not yet able to decrypt the data, since he does not know the secret to decrypt them.
 
@@ -53,20 +53,20 @@ However, this resolution does not ensure that the published secret could be used
 
 #### NRP - step 1: consumer gets cipherblock and non-repudiable Proof of Origin (PoO)
 
-![NRP step 1](./src/nrpStep1.svg)
+![NRP step 1](./diagrams/nrpStep1.svg)
 
 #### NRP - step 2: consumer sends a Proof of Reception (PoR)
 
-![NRP step 2](./src/nrpStep2.svg)
+![NRP step 2](./diagrams/nrpStep2.svg)
 
 #### NRP - step 3: provider publishes the secret, and consumer decrypts the cipherblock
 
-![NRP step 3](./src/nrpStep3.svg)
+![NRP step 3](./diagrams/nrpStep3.svg)
 
 #### Conflict resolution: verification (NRP completeness)
 
-![CR verification](./src/conflictVerification.svg)
+![CR verification](./diagrams/conflictVerification.svg)
 
 #### Conflict resolution: dispute
 
-![CR dispute](./src/conflictDispute.svg)
+![CR dispute](./diagrams/conflictDispute.svg)
