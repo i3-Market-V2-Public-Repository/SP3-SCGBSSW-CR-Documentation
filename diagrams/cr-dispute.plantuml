@@ -1,0 +1,63 @@
+@startuml conflictDispute
+skinparam shadowing false
+skinparam DefaultFontName DejaVu Sans
+skinparam DefaultMonospacedFontName DejaVu Sans Mono
+skinparam ArrowFontName DejaVu Sans Mono
+skinparam maxMessageSize 460
+
+title "i3-MARKET conflict resolution: dispute"
+
+box "i3M Consumer" #White
+  participant "Consumer: SDA SDK" as C #99FF99
+end box
+box "i3M Backplane\n" #FBFBFF
+  participant "Backplane API\n: Conflict-Resolver Service" as CRS #A9A9FF
+  participant "i3-MARKET DLT" as DLT
+end box
+
+note right of C #E9FFE9
+  If after a completed non-repudiation protocol
+  a consumer cannot properly decrypt the
+  cipherblock with the published secret, the
+  consumer can initiate a dispute so that it 
+  gets a signed resolution made by a trusted
+  third party proving that the the cipherblock
+  cannot effectively be decrypted.
+end note
+
+C->C: create disputeRequest = JWS<sub>consumer</sub>({\n\
+  proofType: 'request'\n\
+  iss: 'dest'\n\
+  iat: number // NumericDate for issued at\n\
+  por: string // the PoR as a compact JWS\n\
+  dataExchangeId: string\n\
+  type: 'disputeRequest'\n\
+  cipherblock: string // the cipherblock as a JWE\n\
+})
+C->CRS++: POST /dispute { disputeRequest }
+
+CRS->DLT++: getSecret (por.exchange.ledgerSignerAddress, por.exchange.id)
+return { secret, secretIat }
+
+CRS->CRS: decrypt cipherblock with secret:\n  decryptedBlock=Dec<sub>secret</sub>(cipherblock)
+
+CRS->CRS: validate that:\n  decryptedBlock meets  PoO.exchange.schema
+
+CRS->CRS: signedResolution = JWS<sub>CRS</sub>({\n\
+  proofType: 'resolution'\n\
+  type: 'dispute'\n\
+  resolution: 'accepted' | 'denied'\n\
+  dataExchangeId: disputeRequest.por.poo.exchange.id\n\
+  iat: number // NumericDate now\n\
+  iss: string // the public key of the CRS in JWK\n\
+  sub: string // the public JWK of the consumer\n\
+})
+note left #E9E9FF
+  Resolution is 'denied' if the cipherblock
+  can be properly decrypted; otherwise 
+  is 'accepted'.
+end note
+return { signedResolution }
+
+
+@enduml

@@ -1,0 +1,138 @@
+@startuml nrpOverview
+skinparam shadowing false
+skinparam DefaultFontName DejaVu Sans
+skinparam DefaultMonospacedFontName DejaVu Sans Mono
+skinparam ArrowFontName DejaVu Sans Mono
+skinparam maxMessageSize 450
+
+title i3-MARKET non-repudiation protocol
+
+box "i3M Consumer" #White
+  participant "Consumer: SDA SDK" as C #99FF99
+end box
+box "i3M Provider" #White
+  participant "SDA API\n: Data Transfer Manager" as P #FFAAAA
+end box
+box "i3M Backplane\n" #FBFBFF
+  participant "i3-MARKET DLT" as DLT
+end box
+
+== step 1: consumer gets cipherblock and non-repudiable Proof of Origin (PoO) ==
+C->P++: GET data {id?: <block_id>}
+note right #E9FFE9
+  1. query a block of data
+end note
+  P->P++: create one-time secret
+  P--
+  note left #FFE9E9
+    2. create random (high entropy)
+    one-time symmetric JWK secret
+  end note
+  P->P++: cipherblock=Enc<sub>secret</sub>(block)
+  P--
+  note left #FFE9E9
+    3. encrypt data block with secret
+    using agreed encAlg (only AE modes 
+    of operation supported)
+  end note
+  P->P++: Create signed PoO
+  note left #FFE9E9
+    4. create proof of origin (PoO)
+  end note
+  P--
+return { cipherblock, PoO }
+note right #FFE9E9
+  5. return cipherblock (the consumer cannot
+  decrytp it yet), and the PoO
+end note
+
+C->C++: validate PoO
+C--
+note right #E9FFE9
+  6. validate PoO against
+  received cipherblock and
+  agreed exchange
+end note
+
+C->C: store PoO
+note right #E9FFE9
+  7. store PoO
+end note
+
+== step 2: consumer sends a Proof of Reception (PoR) ==
+
+C->C++: Create signed PoR
+note right #E9FFE9
+  8. create proof of
+  reception (PoR)
+end note
+C--
+
+C->P++: PoR
+P->P: validate PoR
+note left #FFE9E9
+  9. validate PoR
+end note
+
+P->P: store PoR.
+note left #FFE9E9
+  10. store PoR.
+  The PoR is non-repudiable proof of
+  the consumer being commited to get
+  the secret to decrypt the cipherblock
+end note
+
+== step 3: provider publishes the secret, and consumer decrypts the cipherblock ==
+
+P->DLT: call sc setregistry(exchangeId, secret)
+note left #FFE9E9
+  11. Provider publishes secret on the DLT.
+  The one-time secret that was used to encrypt 
+  the block is published to the DLT using the 
+  non-repudiation smart contract.
+end note
+
+P->P: Create signed PoP
+note left #FFE9E9
+  12. Provider creates the PoP.
+  A proof of publication ("PoP") is created, 
+  but only to accelarate the process, since
+  the actual PoP is the secret published 
+  with the smart contract. In any case,
+  receiving the PoP is likely faster than
+  waiting for the secret to be published on
+  the DLT.
+end note
+P-->C: PoP
+
+note right of C #E9FFE9
+  13. Consumer gets the secret in the PoP
+end note
+
+opt no response || lost response
+  P -->x C: PoP
+  note right of C #E9FFE9
+    13.5. If the PoP is not received, the consumer
+    downloads the secret from the DLT.
+
+    With the PoR, the consumer commited to get
+    the secret from the DLT even if the PoP was
+    not received.
+    In any case, there is a predefined/agreed
+    max timeout ""pooToSecretDelay"" to wait
+    for the ""secret"" to be avalaible on the DLT
+  end note
+  C->DLT++: getSecret (exchange.ledgerSignerAddress, exchange.id)
+  return secret
+end
+  
+C->C: verify that hash(secret) == PoO.exchange.secretCommitment
+note right #E9FFE9
+  14. The consumer verifies the secret
+end note
+
+C->C: decrypt cipherblock with secret:\n decryptedBlock=Dec<sub>secret</sub>(cipherblock)
+note right #E9FFE9
+  15. The consumer decrypts the cipherblock.
+end note
+@enduml

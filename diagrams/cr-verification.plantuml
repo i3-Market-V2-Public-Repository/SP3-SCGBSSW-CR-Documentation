@@ -1,0 +1,57 @@
+@startuml conflictVerification
+skinparam shadowing false
+skinparam DefaultFontName DejaVu Sans
+skinparam DefaultMonospacedFontName DejaVu Sans Mono
+skinparam ArrowFontName DejaVu Sans Mono
+skinparam maxMessageSize 460
+
+title "i3-MARKET conflict resolution: verification (NRP completeness)"
+
+box "i3M Provider" #White
+  participant "SDA API\n: Data Transfer Manager" as P #FFAAAA
+end box
+box "i3M Backplane\n" #FBFBFF
+  participant "Backplane API\n: Conflict-Resolver Service" as CRS #A9A9FF
+  participant "i3-MARKET DLT" as DLT
+end box
+
+note right of P #FFE9E9
+  For every invoiced block, a provider should
+  attach a signed proof (resolution) of
+  verification of completeness of the 
+  non-repudiation protocol
+end note
+
+P->P: create verificationRequest = JWS<sub>consumer</sub>({\n\
+  proofType: 'request'\n\
+  iss: 'dest'\n\
+  iat: number // NumericDate now\n\
+  por: string // the PoR as a compact JWS\n\
+  dataExchangeId: string\n\
+  type: 'verificationRequest'\n\
+})
+P->CRS++: POST /verification { verificationRequest }
+CRS->CRS: verify PoR in verificationRequest
+CRS->CRS: verify verificationRequest using por.exchange.orig JWK (provider's public key)
+CRS->DLT++: getSecret (por.exchange.ledgerSignerAddress, por.exchange.id)
+return { secret, secretIat }
+CRS->CRS: verify:\n secret is published &&\n secretIat < por.poo.iat + por.poo.exchange.pooToSecretDelay
+CRS->CRS: signedResolution = JWS<sub>CRS</sub>({\n\
+  proofType: 'resolution'\n\
+  type: 'verification'\n\
+  resolution: 'completed' | 'not completed'\n\
+  dataExchangeId: verificationRequest.por.poo.exchange.id\n\
+  iat: number // NumericDate now\n\
+  iss: string // the public key of the CRS in JWK\n\
+  sub: string // the public JWK of the consumer\n\
+})
+note left #E9E9FF
+  Resolution is 'completed' if the non-repudiation
+  protocol for this exchange is complete: i.e. that
+  the PoR has been properly verified, and that
+  the secret was published in time; otherwise
+  resolution is 'not completed'.
+end note
+return { signedResolution }
+
+@enduml

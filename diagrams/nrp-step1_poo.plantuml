@@ -1,0 +1,78 @@
+@startuml nrpStep1
+skinparam shadowing false
+skinparam DefaultFontName DejaVu Sans
+skinparam DefaultMonospacedFontName DejaVu Sans Mono
+skinparam ArrowFontName DejaVu Sans Mono
+skinparam maxMessageSize 400
+
+title "i3M NRP - step 1: consumer gets cipherblock and non-repudiable Proof of Origin (PoO)"
+
+box "Consumer" #White
+  participant ": SDA SDK" as C #99FF99
+end box
+box "Provider" #White
+  participant "SDA API\n: Data Transfer Manager" as P #FFAAAA
+end box
+
+C->P++: GET data {id?: <block_id>}
+note right #E9FFE9
+  1. query a block of data
+end note
+  P->P++: create one-time secret
+  P--
+  note left #FFE9E9
+    2. create random (high entropy)
+    one-time symmetric JWK secret
+  end note
+  P->P++: cipherblock=Enc<sub>secret</sub>(block)
+  P--
+  note left #FFE9E9
+    3. encrypt data block with secret
+    using agreed encAlg (only AE modes 
+    of operation supported)
+  end note
+  P->P++: PoO=JWS<sub>provider</sub>({\n\
+  iss: 'orig',\n\
+  proofType: 'PoO',\n\
+  iat: <timestamp_now>,\n\
+  exchange: {\n\
+    id: string \n\
+    orig: string // Public key as a compact JWK of the provider\n\
+    dest: string // Public key as a compact JWK of the consumer\n\
+    hashAlg: string // agreed hash algorithm \n\
+    encAlg: string // agreed encryption algorithm\n\
+    signingAlg: string // agreed JWS signing algorithm \n\
+    ledgerContractAddress: string // contract address \n\
+    ledgerSignerAddress: string // address of the orig in the ledger \n\
+    pooToPorDelay: number // max milliseconds between issued PoO and verified PoR \n\
+    pooToSecretDelay: number // max milliseconds between issued PoO and secret published on the ledger \n\
+    schema?: string // an optional schema. In the future it will be used to check the decrypted data \n\
+    cipherblockDgst: string // hash of the cipherblock in base64url with no padding \n\
+    secretCommitment: string // hash of the secret that can be used to decrypt the block in base64url with no padding \n\
+  }\n\
+})
+  note left #FFE9E9
+    4. create proof of origin (PoO)
+  end note
+  P--
+return { cipherblock, PoO }
+note right #FFE9E9
+  5. return cipherblock (the consumer cannot
+  decrytp it yet), and the PoO
+end note
+
+C->C++: validate PoO
+C--
+note right #E9FFE9
+  6. validate PoO against
+  received cipherblock and
+  agreed exchange
+end note
+opt invalid PoO
+  C->>P !!: terminate
+end
+C->C: store PoO
+note right #E9FFE9
+  7. store PoO
+end note
+@enduml

@@ -1,0 +1,45 @@
+@startuml nrpStep2
+skinparam shadowing false
+skinparam DefaultFontName DejaVu Sans
+skinparam DefaultMonospacedFontName DejaVu Sans Mono
+skinparam ArrowFontName DejaVu Sans Mono
+skinparam maxMessageSize 450
+
+title "i3M NRP - step 2: consumer sends a Proof of Reception (PoR)"
+
+box "i3M Consumer" #White
+  participant "Consumer: SDA SDK" as C #99FF99
+end box
+box "i3M Provider" #White
+  participant "SDA API\n: Data Transfer Manager" as P #FFAAAA
+end box
+
+C->C++: PoR=JWS<sub>consumer</sub>({\n\
+  iss: 'dest',\n\
+  proofType: 'PoR',\n\
+  iat: <timestamp_now>,\n\
+  poo: string, // The PoO as a compact JWS.\n\
+  exchange: <the same exchange in the PoO>\n\
+})
+note right #E9FFE9
+  1. create proof of
+  reception (PoR)
+end note
+C--
+
+C->P++: PoR
+P->P: validate PoR
+note left #FFE9E9
+  2. validate PoR
+end note
+opt invalid PoR
+  P-->>C !!: terminate
+end
+P->P: store PoR.
+note left #FFE9E9
+  3. store PoR.
+  The PoR is non-repudiable proof of
+  the consumer being commited to get
+  the secret to decrypt the cipherblock
+end note
+@enduml

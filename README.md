@@ -1,73 +1,72 @@
-# Sequence diagrams
+# Conflict Resolution / Non-repudiation protocol
 
-Diagrams have been created using [PlantUML](https://plantuml.com/).
+The conflict resolution system main goal is to prevent and or solve conflicts when invoicing for a given exchange of data.
 
-If you want to contribute please read first the [documentation for sequence diagrams](https://plantuml.com/sequence-diagram) before updating/creating new diagrams in the `src/` directory.
+For the Conflict Resolution system to work, the i3-MARKET Non-Repudiation Protocol (NRP) must be executed with every exchanged block of data. If the NRP is followed, any third party could verify the actual data exchange in order to prevent and/or solve a dispute. The Conflict-Resolver Service (CRS) can be run by a trusted third party to issue verifiable signed resolutions regarding the execution of the NRP.
 
-## Install PlantUML
+As per the above explanation, the Conflict Resolution system relies on two subsystems:
 
-Download PlantUML compiled Jar from [https://plantuml.com/download](https://plantuml.com/download)
+ 1. [The non-repudiation-protocol library](https://gitlab.com/i3-market/code/wp3/t3.2/conflict-resolution/non-repudiation-protocol); and
+ 2. [The conflict-resolver service](https://gitlab.com/i3-market/code/wp3/t3.2/conflict-resolution/conflict-resolver).
 
-## Generate images from source
+- [1. Use cases](#1-use-cases)
+- [2. The non-repudiation protocol](#2-the-non-repudiation-protocol)
+  - [2.1. Detailed diagrams](#21-detailed-diagrams)
+    - [NRP - step 1: consumer gets cipherblock and non-repudiable Proof of Origin (PoO)](#nrp---step-1-consumer-gets-cipherblock-and-non-repudiable-proof-of-origin-poo)
+    - [NRP - step 2: consumer sends a Proof of Reception (PoR)](#nrp---step-2-consumer-sends-a-proof-of-reception-por)
+    - [NRP - step 3: provider publishes the secret, and consumer decrypts the cipherblock](#nrp---step-3-provider-publishes-the-secret-and-consumer-decrypts-the-cipherblock)
+    - [Conflict resolution: verification (NRP completeness)](#conflict-resolution-verification-nrp-completeness)
+    - [Conflict resolution: dispute](#conflict-resolution-dispute)
 
-In the following we will assume that the sequence diagram source file is located at `./src/sequenceDiagram.plantml` and that we want to output the generated images directly to the project base dir, which can be expressed as `..` relatively to where the source file is. We will also assume that `plantuml.jar` is in the project base dir, but you will need to update the commands with the actual path where you downloaded it.
+## 1. Use cases
 
-PlantUML supports exporting different images:
+The Conflict Resolution will prevent the following situations any two peers of a data exchange, namely provider and consumer:
 
-```text
-    -tpng               To generate images using PNG format (default)
-    -tsvg               To generate images using SVG format
-    -teps               To generate images using EPS format
-    -tpdf               To generate images using PDF format
-    -tvdx               To generate images using VDX format
-    -txmi               To generate XMI file for class diagram
-    -tscxml             To generate SCXML file for state diagram
-    -thtml              To generate HTML file for class diagram
-    -ttxt               To generate images with ASCII art
-    -tutxt              To generate images with ASCII art using Unicode characters
-    -tlatex             To generate images using LaTeX/Tikz format
-    -tlatex:nopreamble  To generate images using LaTeX/Tikz format without preamble
-```
+- to deny that a given data-block exchange happened,
+- or to assert that a data-block exchange that did not happen, happened
 
-So you can just create a PNG from `./src/sequenceDiagram.plantml` in the project directory as:
+As a result, providers will not be able to invoice a consumer for a data block not exchanged; and consumers will not be able to deny or cancel a payment for a data block that was successfully exchanged.
 
-```console
-java -jar plantuml.jar -tpng -o .. ./src/sequenceDiagram.plantml
-```
+For it to happen, every block of data must exchanged using the non-repudiation protocol. Accounted proofs give no room to alter the invoicing (fiat money) or the crypto payments (i3-MARKET tokens) if both entities reliably execute the protocol; otherwise the Conflict Resolver service can be invoked to univocally solve which entity is intentionally or unintentionally malfunctioning.
 
-And for any other format just switch `-tpng` with the desired output format.
+## 2. The non-repudiation protocol
 
-The case of PDF generation is somewhat special since the PlantUML PDF exporter is, let's say it like this, not good, so it is preferable to export first to SVG with
+The non repudiation protocol starts with a Provider Alice, hereby A, sending a signed Proof of Origin (PoO) along with an encrypted block of data to a Consumer Bob, hereby B.
 
-```console
-java -jar plantuml.jar -tsvg -o .. ./src/sequenceDiagram.plantml
-```
+An overview of the protocol is depicted in the next figure, and more detailed sequence diagrams of every step are provided in section [2.1. Detailed diagrams](#21-detailed-diagrams).
 
-and then use another software, such as [Inkscape](https://inkscape.org/), to create the PDF from the SVG.
+![NRP high level overview](./src/nrpOverview.svg)
 
-You can do it manually or create a command-line script. In Linux/Mac, you could create one called `svgtopdf` with the following contents
+After validating the PoO, B will demonstrate his will to get the data by sending a signed Proof of Reception (PoR). Just recall that B is at this point not yet able to decrypt the data, since he does not know the secret to decrypt them.
 
-```bash
-#!/bin/bash
-for file in "$@"; do
-    inkscape --export-pdf="${file%.svg}.pdf" $file
-done
-```
+The PoR is a proof that can be used by A to demonstrate that B is committed to get the secret to decrypt the block of data.
 
-Give your script execution permissions
+Now A can release the secret as part of a Proof of Publication (PoP). However, as B may state that he did not receive the PoP, A also publishes the secret to the ledger. It is now under B's responsibility to get the secret from the ledger, since he implicitly agreed to it when sending the PoR.
 
-```console
-chmod +x svgtopdf
-```
+For A to create a valid invoice for that block of data, she MUST present a valid PoR and demonstrate that the secret was published to the ledger within the agreed delay (part of the agreement). As a result, the lack of one or both proofs will result in an invalid invoice.
 
-and move it somewhere in your path, for example to `/usr/local/bin`
+The Conflict-Resolver Service (CRS) can be queried to provide a signed resolution about the non-repudiation protocol associated to an invoice being valid or invalid. It could be invoked by either the consumer or the provider. The latter should be mandatory, being the resolution sent along with the invoice to the consumer.
 
-```console
-mv svgtopdf /usr/local/bin
-```
+However, this resolution does not ensure that the published secret could be used to decrypt the encrypted block of data. If the consumer B is not able to decrypt the cipherblock, he could initiate a dispute on the CRS. The CRS will also provide signed resolution of whether B is right or not.
 
-Now, you can easily convert the SVG image to PDF with
+### 2.1. Detailed diagrams
 
-```console
-svgtopdf image.svg
-```
+#### NRP - step 1: consumer gets cipherblock and non-repudiable Proof of Origin (PoO)
+
+![NRP step 1](./src/nrpStep1.svg)
+
+#### NRP - step 2: consumer sends a Proof of Reception (PoR)
+
+![NRP step 2](./src/nrpStep2.svg)
+
+#### NRP - step 3: provider publishes the secret, and consumer decrypts the cipherblock
+
+![NRP step 3](./src/nrpStep3.svg)
+
+#### Conflict resolution: verification (NRP completeness)
+
+![CR verification](./src/conflictVerification.svg)
+
+#### Conflict resolution: dispute
+
+![CR dispute](./src/conflictDispute.svg)
