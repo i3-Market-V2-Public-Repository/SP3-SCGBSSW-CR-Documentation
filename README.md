@@ -10,7 +10,7 @@ For the Conflict Resolution system to work, the i3-MARKET Non-Repudiation Protoc
 As per the above explanation, the Conflict Resolution system relies on two subsystems:
 
  1. [The non-repudiation-protocol library](https://github.com/i3-Market-V2-Public-Repository/SP3-SCGBSSW-CR-NonRepudiationLibrary); and
- 2. [The conflict-resolver service](https://github.com/i3-Market-V2-Public-Repository/SP3-SCGBSSW-CR-ConflictResolver).
+ 2. [The conflict-resolver service](https://github.com/i3-Market-V2-Public-Repository/SP3-SCGBSSW-CR-ConflictResolverService).
 
 - [1. Use cases](#1-use-cases)
 - [2. The non-repudiation protocol](#2-the-non-repudiation-protocol)
